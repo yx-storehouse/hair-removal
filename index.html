@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脱毛仪打卡系统</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="loading-spinner"></div>
+            <p>加载中...</p>
+        </div>
+
+        <!-- Login Screen -->
+        <div id="login-screen" class="screen active">
+            <div class="login-container">
+                <div class="login-header">
+                    <div class="logo">
+                        <i class="fas fa-spa"></i>
+                        <h1>脱毛仪打卡系统</h1>
+                    </div>
+                    <p class="subtitle">记录您的美丽蜕变之旅</p>
+                </div>
+                
+                <div class="login-form">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" placeholder="请输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">密码</label>
+                        <input type="password" id="password" placeholder="请输入密码">
+                    </div>
+                    <button id="login-btn" class="btn-primary">登录</button>
+                    <button id="register-btn" class="btn-secondary">注册新用户</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App Screen -->
+        <div id="main-screen" class="screen">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-content">
+                    <div class="user-info">
+                        <div class="avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="user-details">
+                            <h3 id="user-name">用户名</h3>
+                            <p id="user-stats">今日已打卡 0 次</p>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button id="admin-btn" class="btn-icon" title="管理员">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button id="logout-btn" class="btn-icon" title="退出">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Navigation -->
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-tab="checkin">
+                    <i class="fas fa-check-circle"></i>
+                    <span>打卡</span>
+                </button>
+                <button class="nav-item" data-tab="history">
+                    <i class="fas fa-history"></i>
+                    <span>记录</span>
+                </button>
+                <button class="nav-item" data-tab="stats">
+                    <i class="fas fa-chart-line"></i>
+                    <span>统计</span>
+                </button>
+                <button class="nav-item" data-tab="profile">
+                    <i class="fas fa-user"></i>
+                    <span>我的</span>
+                </button>
+            </nav>
+
+            <!-- Content Area -->
+            <main class="main-content">
+                <!-- Check-in Tab -->
+                <div id="checkin-tab" class="tab-content active">
+                    <div class="checkin-container">
+                        <div class="checkin-header">
+                            <h2>今日打卡</h2>
+                            <div class="date-display">
+                                <i class="fas fa-calendar"></i>
+                                <span id="current-date"></span>
+                            </div>
+                        </div>
+
+                        <div class="checkin-form">
+                            <div class="form-section">
+                                <label>选择设备类型</label>
+                                <div class="device-grid" id="device-grid">
+                                    <!-- Device options will be populated by JS -->
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <label>选择部位</label>
+                                <div class="area-grid" id="area-grid">
+                                    <!-- Area options will be populated by JS -->
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <label>强度等级</label>
+                                <div class="intensity-slider">
+                                    <input type="range" id="intensity" min="1" max="3" value="3" style="width: 100%;">
+                                    <div class="intensity-labels">
+                                        <span>1</span><span>2</span><span>3</span>
+                                    </div>
+                                    <div class="intensity-value">强度: <span id="intensity-value">3</span></div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <label>备注</label>
+                                <textarea id="checkin-notes" placeholder="记录今天的使用感受..."></textarea>
+                            </div>
+
+                            <div class="form-section">
+                                <label>打卡照片</label>
+                                <input type="file" id="checkin-photo" accept="image/*">
+                                <div id="checkin-photo-preview" class="photo-preview"></div>
+                            </div>
+
+                            <button id="checkin-submit" class="btn-checkin">
+                                <i class="fas fa-check"></i>
+                                完成打卡
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="history-tab" class="tab-content">
+                    <div class="history-container">
+                        <div class="history-header">
+                            <h2>打卡记录</h2>
+                            <div class="filter-controls">
+                                <select id="history-filter">
+                                    <option value="all">全部记录</option>
+                                    <option value="week">最近一周</option>
+                                    <option value="month">最近一月</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Calendar View -->
+                        <div class="calendar-container">
+                            <div class="calendar-header">
+                                <button id="prev-month" class="calendar-nav-btn">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <h3 id="calendar-month-year">2024年1月</h3>
+                                <button id="next-month" class="calendar-nav-btn">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="calendar-grid" id="calendar-grid">
+                                <!-- Calendar will be populated by JS -->
+                            </div>
+                            <div class="calendar-legend">
+                                <div class="legend-item">
+                                    <div class="legend-dot no-checkin"></div>
+                                    <span>未打卡</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot single-checkin"></div>
+                                    <span>1次打卡</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot multiple-checkin"></div>
+                                    <span>多次打卡</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View Toggle -->
+                        <div class="view-toggle">
+                            <button id="calendar-view-btn" class="view-btn active">
+                                <i class="fas fa-calendar"></i>
+                                日历视图
+                            </button>
+                            <button id="list-view-btn" class="view-btn">
+                                <i class="fas fa-list"></i>
+                                列表视图
+                            </button>
+                        </div>
+                        <div id="history-list" class="history-list">
+                            <!-- History items will be populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Tab -->
+                <div id="stats-tab" class="tab-content">
+                    <div class="stats-container">
+                        <h2>使用统计</h2>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-fire"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="total-checkins">0</h3>
+                                    <p>总打卡次数</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="streak-days">0</h3>
+                                    <p>连续打卡天数</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-trophy"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="favorite-device">-</h3>
+                                    <p>最常用设备</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-target"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="favorite-area">-</h3>
+                                    <p>最常护理部位</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Profile Tab -->
+                <div id="profile-tab" class="tab-content">
+                    <div class="profile-container">
+                        <h2>个人设置</h2>
+                        <div class="profile-section">
+                            <h3>提醒设置</h3>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="reminder-enabled">
+                                    <span>启用打卡提醒</span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label>提醒时间</label>
+                                <input type="time" id="reminder-time" value="20:00">
+                            </div>
+                        </div>
+                        <div class="profile-section">
+                            <h3>数据管理</h3>
+                            <button id="export-data" class="btn-secondary">
+                                <i class="fas fa-download"></i>
+                                导出数据
+                            </button>
+                            <button id="clear-data" class="btn-danger">
+                                <i class="fas fa-trash"></i>
+                                清空数据
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Admin Panel -->
+        <div id="admin-panel" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>管理员面板</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="admin-section">
+                        <h4>用户管理</h4>
+                        <div id="users-list" class="users-list">
+                            <!-- Users will be populated by JS -->
+                        </div>
+                    </div>
+                    <div class="admin-section">
+                        <h4>系统统计</h4>
+                        <div class="admin-stats">
+                            <div class="admin-stat">
+                                <span>总用户数:</span>
+                                <span id="total-users">0</span>
+                            </div>
+                            <div class="admin-stat">
+                                <span>今日打卡:</span>
+                                <span id="today-checkins">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Modal -->
+        <div id="success-modal" class="modal">
+            <div class="modal-content success">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3>打卡成功！</h3>
+                <p>继续保持，美丽在路上～</p>
+                <button class="btn-primary modal-close">确定</button>
+            </div>
+        </div>
+        <!-- Recheck-in Calendar Modal -->
+        <div id="recheckin-calendar-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>选择补卡日期</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="calendar-container">
+                        <div class="calendar-header">
+                            <button id="recheckin-prev-month" class="calendar-nav-btn">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <h3 id="recheckin-calendar-month-year">2024年1月</h3>
+                            <button id="recheckin-next-month" class="calendar-nav-btn">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="calendar-grid" id="recheckin-calendar-grid">
+                            <!-- Calendar will be populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Check-in Detail Modal (for list view, with edit/delete) -->
+        <div id="checkin-detail-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="checkin-detail-title">打卡详情</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body" id="checkin-detail-list">
+                    <!-- 打卡记录列表由JS生成 -->
+                </div>
+            </div>
+        </div>
+        <!-- Calendar Detail Modal (for calendar view, modern style, no edit/delete) -->
+        <div id="calendar-detail-modal" class="modal">
+            <div class="modal-content calendar-detail-modern">
+                <div class="modal-header">
+                    <h3 id="calendar-detail-title"><i class="fas fa-calendar-day"></i> 打卡详情</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body" id="calendar-detail-list">
+                    <!-- 日历视图打卡详情由JS生成 -->
+                </div>
+            </div>
+        </div>
+        <!-- Photo Preview Modal -->
+        <div id="photo-preview-modal" class="modal">
+            <div class="modal-content" style="background:transparent;box-shadow:none;max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center;">
+                <img id="photo-preview-img" src="" alt="打卡大图" style="max-width:90vw;max-height:80vh;border-radius:16px;box-shadow:0 4px 32px rgba(0,0,0,0.25);background:#fff;">
+                <button class="modal-close" style="position:absolute;top:20px;right:30px;font-size:2rem;color:#fff;background:rgba(0,0,0,0.3);border:none;border-radius:50%;width:44px;height:44px;z-index:2;">&times;</button>
+            </div>
+        </div>
+        <!-- Edit Check-in Modal -->
+        <div id="edit-checkin-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-pen"></i> 编辑打卡记录</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-checkin-form" class="edit-checkin-form-modern">
+                        <div class="form-section">
+                            <label><i class="fas fa-cog"></i> 设备类型</label>
+                            <div class="device-grid" id="edit-device-grid"></div>
+                        </div>
+                        <div class="form-section">
+                            <label><i class="fas fa-map-marker-alt"></i> 护理部位</label>
+                            <div class="area-grid" id="edit-area-grid"></div>
+                        </div>
+                        <div class="form-section">
+                            <label><i class="fas fa-bolt"></i> 强度等级</label>
+                            <div class="intensity-slider">
+                                <input type="range" id="edit-intensity" min="1" max="3" value="3" style="width: 100%;">
+                                <div class="intensity-labels">
+                                    <span>1</span><span>2</span><span>3</span>
+                                </div>
+                                <div class="intensity-value">强度: <span id="edit-intensity-value">3</span></div>
+                            </div>
+                        </div>
+                        <div class="form-section">
+                            <label><i class="fas fa-comment-dots"></i> 备注</label>
+                            <textarea id="edit-notes" placeholder="记录本次使用感受..."></textarea>
+                        </div>
+                        <div class="form-section">
+                            <label><i class="fas fa-camera"></i> 打卡照片</label>
+                            <input type="file" id="edit-photo" accept="image/*">
+                            <div id="edit-photo-preview" class="photo-preview"></div>
+                        </div>
+                        <button type="submit" class="btn-primary"><i class="fas fa-save"></i> 保存修改</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
