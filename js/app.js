@@ -1,5 +1,18 @@
 import hairRemovalConfig from "../config/hair-removal-config.js"
 
+// Cloudinary 图片上传工具函数
+async function uploadImageToCloudinary(file) {
+  const { cloudName, uploadPreset } = hairRemovalConfig.cloudinary
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', uploadPreset)
+  const res = await fetch(url, { method: 'POST', body: formData })
+  if (!res.ok) throw new Error('图片上传失败')
+  const data = await res.json()
+  return data.secure_url
+}
+
 class HairRemovalApp {
   constructor() {
     this.config = hairRemovalConfig
@@ -71,7 +84,15 @@ class HairRemovalApp {
     document.getElementById("admin-btn").addEventListener("click", () => this.showAdminPanel())
 
     // Check-in events
-    document.getElementById("checkin-submit").addEventListener("click", () => this.handleCheckIn())
+    // 防止重复绑定打卡事件
+    const checkinBtn = document.getElementById("checkin-submit")
+    if (checkinBtn) {
+      if (this._handleCheckInWrapper) {
+        checkinBtn.removeEventListener("click", this._handleCheckInWrapper)
+      }
+      this._handleCheckInWrapper = () => this.handleCheckIn()
+      checkinBtn.addEventListener("click", this._handleCheckInWrapper)
+    }
     document.getElementById("intensity").addEventListener("input", (e) => {
       document.getElementById("intensity-value").textContent = e.target.value
     })
@@ -136,13 +157,11 @@ class HairRemovalApp {
         if (file) {
           const reader = new FileReader()
           reader.onload = function(evt) {
-            document.getElementById("checkin-photo-preview").innerHTML = `<img src='${evt.target.result}' alt='打卡照片'>`
-            checkinPhotoInput.dataset.base64 = evt.target.result
+            document.getElementById("checkin-photo-preview").innerHTML = `<img src='${evt.target.result}' alt='打卡照片' loading='lazy'>`
           }
           reader.readAsDataURL(file)
         } else {
           document.getElementById("checkin-photo-preview").innerHTML = ""
-          checkinPhotoInput.dataset.base64 = ""
         }
       })
     }
@@ -154,13 +173,11 @@ class HairRemovalApp {
         if (file) {
           const reader = new FileReader()
           reader.onload = function(evt) {
-            document.getElementById("edit-photo-preview").innerHTML = `<img src='${evt.target.result}' alt='打卡照片'>`
-            editPhotoInput.dataset.base64 = evt.target.result
+            document.getElementById("edit-photo-preview").innerHTML = `<img src='${evt.target.result}' alt='打卡照片' loading='lazy'>`
           }
           reader.readAsDataURL(file)
         } else {
           document.getElementById("edit-photo-preview").innerHTML = ""
-          editPhotoInput.dataset.base64 = ""
         }
       })
     }
@@ -443,67 +460,73 @@ class HairRemovalApp {
   }
 
   async handleCheckIn() {
-    const selectedDevice = document.querySelector(".device-option.selected")
-    const selectedArea = document.querySelector(".area-option.selected")
-    const intensity = document.getElementById("intensity").value
-    const notes = document.getElementById("checkin-notes").value.trim()
-    if (!selectedDevice || !selectedArea) {
-      alert("请选择设备类型和身体部位")
-      return
+    if (this._checkinLoading) return
+    this._checkinLoading = true
+    this.showLoading() // 新增：点击打卡后立即显示 loading
+    try {
+      const selectedDevice = document.querySelector(".device-option.selected")
+      const selectedArea = document.querySelector(".area-option.selected")
+      const intensity = document.getElementById("intensity").value
+      const notes = document.getElementById("checkin-notes").value.trim()
+      if (!selectedDevice || !selectedArea) {
+        alert("请选择设备类型和身体部位")
+        return
+      }
+      // 用补卡日期或今天
+      const checkInDate = this.selectedCheckInDate ? new Date(this.selectedCheckInDate) : new Date()
+      const checkInDayStr = checkInDate.toDateString()
+      // 检查该日打卡上限
+      const dayCheckIns = this.checkIns.filter(
+        (c) => c.userId === this.currentUser.id && new Date(c.timestamp).toDateString() === checkInDayStr,
+      ).length
+      if (dayCheckIns >= this.config.maxCheckInsPerDay) {
+        this._checkinLoading = false
+        alert(`每日最多可打卡 ${this.config.maxCheckInsPerDay} 次`)
+        return
+      }
+      // 处理照片
+      let photo = ""
+      const checkinPhotoInput = document.getElementById("checkin-photo")
+      if (checkinPhotoInput && checkinPhotoInput.files && checkinPhotoInput.files[0]) {
+        photo = await uploadImageToCloudinary(checkinPhotoInput.files[0])
+      }
+      const checkIn = {
+        id: Date.now().toString(),
+        userId: this.currentUser.id,
+        deviceType: selectedDevice.dataset.deviceId,
+        bodyArea: selectedArea.dataset.areaId,
+        intensity: Number.parseInt(intensity),
+        notes,
+        photo,
+        timestamp: new Date(
+          checkInDate.getFullYear(),
+          checkInDate.getMonth(),
+          checkInDate.getDate(),
+          new Date().getHours(),
+          new Date().getMinutes(),
+          new Date().getSeconds(),
+        ).toISOString(),
+      }
+      this.checkIns.push(checkIn)
+      await this.saveToGitee(this.config.checkInDataPath, this.checkIns)
+      // 重置表单和补卡日期
+      document.querySelectorAll(".device-option, .area-option").forEach((option) => {
+        option.classList.remove("selected")
+      })
+      document.getElementById("intensity").value = 3
+      document.getElementById("intensity-value").textContent = "3"
+      document.getElementById("checkin-notes").value = ""
+      this.selectedCheckInDate = null
+      this.updateCheckInDateDisplay()
+      // Show success modal
+      this.showModal("success-modal")
+      // Update UI
+      this.updateUI()
+      if (this.currentTab === 'history') this.updateHistoryDisplay() // 新增：刷新历史
+    } finally {
+      this._checkinLoading = false
+      this.hideLoading() // 新增：打卡结束后隐藏 loading
     }
-    this.showLoading() // 新增loading
-    // 用补卡日期或今天
-    const checkInDate = this.selectedCheckInDate ? new Date(this.selectedCheckInDate) : new Date()
-    const checkInDayStr = checkInDate.toDateString()
-    // 检查该日打卡上限
-    const dayCheckIns = this.checkIns.filter(
-      (c) => c.userId === this.currentUser.id && new Date(c.timestamp).toDateString() === checkInDayStr,
-    ).length
-    if (dayCheckIns >= this.config.maxCheckInsPerDay) {
-      this.hideLoading()
-      alert(`每日最多可打卡 ${this.config.maxCheckInsPerDay} 次`)
-      return
-    }
-    // 处理照片
-    let photo = ""
-    const checkinPhotoInput = document.getElementById("checkin-photo")
-    if (checkinPhotoInput && checkinPhotoInput.dataset.base64) {
-      photo = checkinPhotoInput.dataset.base64
-    }
-    const checkIn = {
-      id: Date.now().toString(),
-      userId: this.currentUser.id,
-      deviceType: selectedDevice.dataset.deviceId,
-      bodyArea: selectedArea.dataset.areaId,
-      intensity: Number.parseInt(intensity),
-      notes,
-      photo,
-      timestamp: new Date(
-        checkInDate.getFullYear(),
-        checkInDate.getMonth(),
-        checkInDate.getDate(),
-        new Date().getHours(),
-        new Date().getMinutes(),
-        new Date().getSeconds(),
-      ).toISOString(),
-    }
-    this.checkIns.push(checkIn)
-    await this.saveToGitee(this.config.checkInDataPath, this.checkIns)
-    // 重置表单和补卡日期
-    document.querySelectorAll(".device-option, .area-option").forEach((option) => {
-      option.classList.remove("selected")
-    })
-    document.getElementById("intensity").value = 3
-    document.getElementById("intensity-value").textContent = "3"
-    document.getElementById("checkin-notes").value = ""
-    this.selectedCheckInDate = null
-    this.updateCheckInDateDisplay()
-    // Show success modal
-    this.showModal("success-modal")
-    // Update UI
-    this.updateUI()
-    if (this.currentTab === 'history') this.updateHistoryDisplay() // 新增：刷新历史
-    this.hideLoading() // 隐藏loading
   }
 
   updateHistoryDisplay() {
@@ -910,14 +933,19 @@ class HairRemovalApp {
           const time = new Date(c.timestamp).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
           list.innerHTML += `
             <div class="calendar-detail-card">
-              <div class="icon">${icon}</div>
+
               <div class="info">
+                <div style="display:flex;align-items:center;gap:10px;">
+                <div class="icon">${icon}</div>
+                <div>
                 <div class="time"><i class='fas fa-clock'></i> ${time}</div>
                 <div><span class="device"><i class='fas fa-cog'></i> ${device ? device.name : '未知设备'}</span>
                 <span class="area"><i class='fas fa-map-marker-alt'></i> ${area ? area.name : '未知部位'}</span>
                 <span class="intensity"><i class='fas fa-bolt'></i> 强度${c.intensity}</span></div>
+                </div>
+                </div>
                 ${c.notes ? `<div class="notes"><i class='fas fa-comment-dots'></i> ${c.notes}</div>` : ""}
-                ${c.photo ? `<div class='photo-preview'><img src='${c.photo}' alt='打卡照片' style='cursor:pointer;'></div>` : ""}
+                ${c.photo ? `<div class='photo-preview'><img src='${c.photo}' alt='打卡照片' loading='lazy' style='cursor:pointer;'></div>` : ""}
               </div>
             </div>
           `
@@ -957,7 +985,7 @@ class HairRemovalApp {
         item.innerHTML = `
           <div><b>${time}</b> - ${device} - ${area} - 强度${c.intensity}</div>
           <div style="color:#888;font-size:13px;">${c.notes ? c.notes : ""}</div>
-          ${c.photo ? `<div class='photo-preview'><img src='${c.photo}' alt='打卡照片'></div>` : ""}
+          ${c.photo ? `<div class='photo-preview'><img src='${c.photo}' alt='打卡照片' loading='lazy'></div>` : ""}
           <div style="margin-top:6px;">
             <button class="btn-secondary btn-edit" data-id="${c.id}">编辑</button>
             <button class="btn-danger btn-delete" data-id="${c.id}">删除</button>
@@ -1466,12 +1494,12 @@ class HairRemovalApp {
     // 预览照片
     const editPhotoInput = document.getElementById("edit-photo")
     const editPhotoPreview = document.getElementById("edit-photo-preview")
-    if (checkIn.photo) {
-      editPhotoPreview.innerHTML = `<img src='${checkIn.photo}' alt='打卡照片'>`
-      editPhotoInput.dataset.base64 = checkIn.photo
+    if (checkIn.photo && checkIn.photo.startsWith('http')) {
+      editPhotoPreview.innerHTML = `<img src='${checkIn.photo}' alt='打卡照片' loading='lazy'>`
+      editPhotoInput.value = "" // 清空input，避免误判新图片
     } else {
       editPhotoPreview.innerHTML = ""
-      editPhotoInput.dataset.base64 = ""
+      editPhotoInput.value = ""
     }
     document.getElementById("edit-checkin-form").dataset.id = id
     this.showModal("edit-checkin-modal")
@@ -1495,8 +1523,8 @@ class HairRemovalApp {
     checkIn.notes = document.getElementById("edit-notes").value.trim()
     // 照片
     const editPhotoInput = document.getElementById("edit-photo")
-    if (editPhotoInput && editPhotoInput.dataset.base64) {
-      checkIn.photo = editPhotoInput.dataset.base64
+    if (editPhotoInput && editPhotoInput.files && editPhotoInput.files[0]) {
+      checkIn.photo = await uploadImageToCloudinary(editPhotoInput.files[0])
     }
     await this.saveToGitee(this.config.checkInDataPath, this.checkIns)
     this.closeModal(document.getElementById("edit-checkin-modal"))

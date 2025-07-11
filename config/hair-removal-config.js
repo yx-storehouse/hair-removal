@@ -34,6 +34,12 @@ const hairRemovalConfig = {
     { id: "bikini", name: "比基尼线", icon: "👙" },
     { id: "back", name: "背部", icon: "🔄" },
   ],
+
+  // Cloudinary Configuration - 图片存储服务
+  cloudinary: {
+    cloudName: "dvrmsh5ow", // 1.登录Cloudinary控制台获取云名称
+    uploadPreset: "hair-removal" // 2.在"设置>上传"创建unsigned预设
+  },
 }
 
 export default hairRemovalConfig

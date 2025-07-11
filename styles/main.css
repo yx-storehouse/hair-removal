@@ -1314,6 +1314,8 @@ body {
 #calendar-detail-list {
   padding: 32px 32px 28px 32px;
   background: linear-gradient(135deg, #f8fafc 60%, #e9e4f0 100%);
+  overflow-y: auto;
+  max-height: 60vh;
 }
 .calendar-detail-card {
   background: #fff;
@@ -1466,9 +1468,36 @@ body {
   min-height: 40px;
 }
 .photo-preview img {
-  max-width: 120px;
-  max-height: 120px;
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  max-height: 300px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(102,126,234,0.10);
+  margin: 0 auto;
+}
+
+/* 日历详情大图更大更自适应 */
+.calendar-detail-card .photo-preview img {
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  height: auto;
   display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+  .modal-content {
+    max-height: 90vh;
+  }
+  #calendar-detail-list {
+    max-height: 70vh;
+  }
+  .photo-preview img,
+  .calendar-detail-card .photo-preview img {
+    max-width: 98vw;
+    max-height: 220px;
+  }
 }
